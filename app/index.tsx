@@ -6,17 +6,34 @@ interface TouchInfo {
   touchId: number;
 }
 
+interface ButtonLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export default function Index() {
   const [pressedButtons, setPressedButtons] = useState<Set<string>>(new Set());
   const [activeTouches, setActiveTouches] = useState<TouchInfo[]>([]);
 
-  const buttonLayouts = useRef<{ [key: string]: { x: number; y: number; width: number; height: number } }>({}).current;
+  const buttonLayouts = useRef<{ [key: string]: ButtonLayout }>({}).current;
+  const containerOffset = useRef({ x: 0, y: 0 }).current;
 
-  // Check if a touch is inside a button
+  // Check if a touch is inside a button (using absolute coordinates)
   const isTouchInside = (buttonId: string, x: number, y: number) => {
     const layout = buttonLayouts[buttonId];
     if (!layout) return false;
-    return x >= layout.x && x <= layout.x + layout.width && y >= layout.y && y <= layout.y + layout.height;
+
+    const absoluteX = layout.x + containerOffset.x;
+    const absoluteY = layout.y + containerOffset.y;
+
+    return (
+      x >= absoluteX &&
+      x <= absoluteX + layout.width &&
+      y >= absoluteY &&
+      y <= absoluteY + layout.height
+    );
   };
 
   const panResponder = useRef(
@@ -28,7 +45,6 @@ export default function Index() {
         const newTouches: TouchInfo[] = [];
         const newPressed = new Set<string>();
 
-        // Check each touch point
         evt.nativeEvent.touches.forEach((touch, index) => {
           Object.keys(buttonLayouts).forEach((buttonId) => {
             if (isTouchInside(buttonId, touch.pageX, touch.pageY)) {
@@ -61,7 +77,6 @@ export default function Index() {
       },
 
       onPanResponderRelease: (evt: GestureResponderEvent) => {
-        // If there are remaining touches, update pressed buttons
         if (evt.nativeEvent.touches.length > 0) {
           const newPressed = new Set<string>();
           evt.nativeEvent.touches.forEach((touch) => {
@@ -87,13 +102,25 @@ export default function Index() {
   ).current;
 
   return (
-    <View style={styles.container} {...panResponder.panHandlers}>
+    <View
+      style={styles.container}
+      {...panResponder.panHandlers}
+      onLayout={(e) => {
+        containerOffset.x = e.nativeEvent.layout.x;
+        containerOffset.y = e.nativeEvent.layout.y;
+      }}
+    >
       {["Button 1", "Button 2"].map((buttonId) => (
         <View
           key={buttonId}
           onLayout={(e) => {
             const layout = e.nativeEvent.layout;
-            buttonLayouts[buttonId] = { x: layout.x, y: layout.y, width: layout.width, height: layout.height };
+            buttonLayouts[buttonId] = {
+              x: layout.x,
+              y: layout.y,
+              width: layout.width,
+              height: layout.height,
+            };
           }}
           style={[
             styles.button,
